@@ -1,0 +1,61 @@
+# Advent of Code 2022 / Day 1
+
+## Max calories
+
+```elixir
+input = """
+1000
+2000
+3000
+
+4000
+
+5000
+6000
+
+7000
+8000
+9000
+
+10000
+"""
+```
+
+Let's split by new line and chunk by empty string.
+
+```elixir
+chunked_input =
+  input
+  |> String.split("\n", trim: false)
+  |> Enum.chunk_by(&(String.length(&1) == 0))
+```
+
+Drop empty lists, and summarize nonempty lists.
+
+```elixir
+calories =
+  chunked_input
+  |> Enum.filter(&(&1 != [""]))
+  |> Enum.map(&Enum.map(&1, fn item -> elem(Integer.parse(item), 0) end))
+  |> Enum.map(&Enum.sum/1)
+```
+
+Sort the list from max to min, take first element, and return total calories.
+
+```elixir
+sorted_calories = Enum.sort(calories, &(&1 >= &2))
+```
+
+```elixir
+Enum.at(sorted_calories, 0)
+```
+
+## Sum of top 3 calories in total
+
+Take first three elements and summarize them.
+
+```elixir
+sorted_calories
+|> Enum.take(3)
+|> Enum.sum()
+```

@@ -1,0 +1,145 @@
+# Advent of Code 2022 / Day 2
+
+```elixir
+Mix.install([{:ex_union, "~> 0.1.1"}])
+```
+
+## Rock Paper Scissors
+
+```elixir
+message = """
+A Y
+B X
+C Z
+"""
+```
+
+Let's parse Elve's and our's strategies into a list having a tuple for each round.
+e.g. `[Shape(Rock), Shape(Paper)}, ...]`. We will use the [`ex_union`](https://hex.pm/packages/ex_union) library to model shapes.
+
+<!-- livebook:{"break_markdown":true} -->
+
+First we define shapes.
+
+```elixir
+defmodule Shape do
+  import ExUnion
+
+  defunion(rock | scissors | paper)
+
+  def from_binary("A"), do: Shape.rock()
+  def from_binary("B"), do: Shape.paper()
+  def from_binary("C"), do: Shape.scissors()
+
+  def from_binary("X"), do: Shape.rock()
+  def from_binary("Y"), do: Shape.paper()
+  def from_binary("Z"), do: Shape.scissors()
+end
+```
+
+Let's split `message` by newline and space and then chunk by 2 elements. And finally replace nested lists with tuples of Shapes for appropriate letters.
+
+```elixir
+rounds =
+  message
+  |> String.split()
+  |> Enum.chunk_every(2)
+  |> Enum.map(fn [elf_bin, my_bin] -> {Shape.from_binary(elf_bin), Shape.from_binary(my_bin)} end)
+```
+
+We replace each round tuple with a score by summarizing results from anonymous functions pinned to `round_score` called with the round and to `shape_score` called with my shape.
+
+```elixir
+round_score = fn
+  # I loose
+  {%Shape.Rock{}, %Shape.Scissors{}} -> 0
+  {%Shape.Scissors{}, %Shape.Paper{}} -> 0
+  {%Shape.Paper{}, %Shape.Rock{}} -> 0
+  # We draw
+  {shape, shape} -> 3
+  # I win in all other cases
+  {_, _} -> 6
+end
+
+shape_score = fn
+  %Shape.Rock{} -> 1
+  %Shape.Paper{} -> 2
+  %Shape.Scissors{} -> 3
+end
+
+all_scores =
+  Enum.map(rounds, fn {_elf_shape, my_shape} = a_round ->
+    round_score.(a_round) + shape_score.(my_shape)
+  end)
+```
+
+All we need now is to summarize round scores to get the total score.
+
+```elixir
+Enum.sum(all_scores)
+```
+
+## Choosing the shape for expected outcome of the round
+
+In part two we interpret X, Y, Z as round outcome explicitly. Let's model that first.
+
+```elixir
+defmodule Outcome do
+  import ExUnion
+
+  defunion(loose | draw | win)
+
+  def from_binary("X"), do: Outcome.loose()
+  def from_binary("Y"), do: Outcome.draw()
+  def from_binary("Z"), do: Outcome.win()
+end
+```
+
+And reparse the message interpreting the second column as party outcome.
+
+```elixir
+rounds =
+  message
+  |> String.split()
+  |> Enum.chunk_every(2)
+  |> Enum.map(fn [elf_bin, outcome] ->
+    {Shape.from_binary(elf_bin), Outcome.from_binary(outcome)}
+  end)
+```
+
+Now we calculate our shape score depending on the Elf's shape and outcome that is round. 
+We choose our shape first and then calculate score from it as before. And we pass our selected shape to `round_score` anonymous function to calculate it correctly.
+
+```elixir
+winner_shape = fn
+  %Shape.Scissors{} -> Shape.rock()
+  %Shape.Paper{} -> Shape.scissors()
+  %Shape.Rock{} -> Shape.paper()
+end
+
+looser_shape = fn
+  %Shape.Rock{} -> Shape.scissors()
+  %Shape.Scissors{} -> Shape.paper()
+  %Shape.Paper{} -> Shape.rock()
+end
+
+choose_my_shape = fn {elf_shape, outcome} ->
+  case outcome do
+    %Outcome.Draw{} -> elf_shape
+    %Outcome.Win{} -> winner_shape.(elf_shape)
+    %Outcome.Loose{} -> looser_shape.(elf_shape)
+  end
+end
+
+all_scores =
+  Enum.map(rounds, fn {elf_shape, _outcome} = a_round ->
+    my_shape = choose_my_shape.(a_round)
+    round_score.({elf_shape, my_shape}) + shape_score.(my_shape)
+  end)
+```
+
+Finally summarize total score.
+
+```elixir
+Enum.sum(all_scores)
+```

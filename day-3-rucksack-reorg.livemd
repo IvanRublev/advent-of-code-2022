@@ -1,0 +1,86 @@
+# Advent of Code 2022 / Day 3
+
+## Rucksack compartments
+
+```elixir
+input = """
+vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"""
+```
+
+Split strings. Cconvert each string to list and map each letter to number.
+
+```elixir
+to_num = fn charlist ->
+  Enum.map(charlist, fn char ->
+    cond do
+      char >= ?a and char <= ?z -> char - ?a + 1
+      char >= ?A and char <= ?Z -> char - ?A + 27
+    end
+  end)
+end
+
+rucksacks =
+  input
+  |> String.split()
+  |> Enum.map(fn binary -> to_num.(String.to_charlist(binary)) end)
+```
+
+Chunk each string every half length.
+
+```elixir
+compartments = Enum.map(rucksacks, &Enum.chunk_every(&1, div(length(&1), 2)))
+```
+
+To find the common items in we will turn each compartment into MapSet and get intersection.
+
+```elixir
+commons =
+  Enum.map(
+    compartments,
+    &MapSet.intersection(MapSet.new(Enum.at(&1, 0)), MapSet.new(Enum.at(&1, 1)))
+  )
+```
+
+To summarize we turn each mapset into a list, flatten then, and sum.
+
+```elixir
+commons
+|> Enum.map(&MapSet.to_list/1)
+|> List.flatten()
+|> Enum.sum()
+```
+
+## Badges
+
+For badges we have to find common item in each 3 chunks of rucksacks. Let's start with chunking.
+
+```elixir
+groups = Enum.chunk_every(rucksacks, 3)
+```
+
+Because every rucksack in the group can have repetative items we turn each rucksack in the mapset and then find intersection between all of three for each group.
+
+```elixir
+badges =
+  Enum.map(groups, fn [sack1, sack2, sack3] ->
+    sack1
+    |> MapSet.new()
+    |> MapSet.intersection(MapSet.new(sack2))
+    |> MapSet.intersection(MapSet.new(sack3))
+  end)
+```
+
+Convert each badge to list, flatten, and sum.
+
+```elixir
+badges
+|> Enum.map(&MapSet.to_list/1)
+|> List.flatten()
+|> Enum.sum()
+```

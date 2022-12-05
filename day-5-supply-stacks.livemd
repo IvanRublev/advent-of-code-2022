@@ -1,0 +1,124 @@
+# Advent of Code 2022 / Day 5
+
+## Supply Stacks one by one
+
+Let's assign stack and instruction inputs to appropriate variables.
+
+```elixir
+stack_input = """
+    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+"""
+
+instructions_input = """
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2
+"""
+```
+
+We parse and rotate stacks matrix to have each stack as a list so it's simplier to operate.
+
+Remove two last lines.
+
+```elixir
+crates =
+  stack_input
+  |> String.split("\n")
+  |> List.delete_at(-1)
+  |> List.delete_at(-1)
+```
+
+Scan spaces and items into list.
+
+```elixir
+crates =
+  Enum.map(crates, fn line ->
+    symbols = Regex.scan(~r'\s(\s)\s\s?|\[([A-Z])\]\s?', line, capture: :all_but_first)
+
+    Enum.map(symbols, fn a_symbol ->
+      case a_symbol do
+        [" "] -> nil
+        ["", symbol] -> symbol
+      end
+    end)
+  end)
+```
+
+Rotate crates 90 degrees. Each list represents crate itmes first is the top one, last is most bottom one. We remove empty spaces from lists to have proper indexes.
+
+```elixir
+crates = Enum.zip_with(crates, &Enum.reject(&1, fn item -> is_nil(item) end))
+```
+
+Parse instructions with regex.
+
+```elixir
+instructions =
+  instructions_input
+  |> String.split("\n")
+  |> List.delete_at(-1)
+  |> Enum.map(fn line ->
+    ~r'move (\d+) from (\d+) to (\d+)'
+    |> Regex.scan(line, capture: :all_but_first)
+    |> List.flatten()
+    |> Enum.map(&elem(Integer.parse(&1), 0))
+  end)
+```
+
+Execute the instructions. Because we move the whole amount in one operation and problem requires to move crates one-by-one we simulate this by reversing `crates_in_air`.
+
+```elixir
+reordered_crates =
+  Enum.reduce(instructions, crates, fn [amount, from, to], crates ->
+    from_idx = from - 1
+    to_idx = to - 1
+    from_line = Enum.at(crates, from_idx)
+    to_line = Enum.at(crates, to_idx)
+
+    {crates_in_air, from_line} = Enum.split(from_line, amount)
+    to_line = List.flatten([Enum.reverse(crates_in_air) | to_line])
+
+    crates
+    |> List.replace_at(from_idx, from_line)
+    |> List.replace_at(to_idx, to_line)
+  end)
+```
+
+Take the top (first) crate from each list.
+
+```elixir
+reordered_crates
+|> Enum.map(&List.first/1)
+|> Enum.join()
+```
+
+## CrateMover 9001 - Move multiple cranes at once
+
+Our algorithm already support this. We simply stop revert to get right result.
+
+```elixir
+reordered_crates =
+  Enum.reduce(instructions, crates, fn [amount, from, to], crates ->
+    from_idx = from - 1
+    to_idx = to - 1
+    from_line = Enum.at(crates, from_idx)
+    to_line = Enum.at(crates, to_idx)
+
+    {crates_in_air, from_line} = Enum.split(from_line, amount)
+    to_line = List.flatten([crates_in_air | to_line])
+
+    crates
+    |> List.replace_at(from_idx, from_line)
+    |> List.replace_at(to_idx, to_line)
+  end)
+```
+
+```elixir
+reordered_crates
+|> Enum.map(&List.first/1)
+|> Enum.join()
+```

@@ -1,0 +1,52 @@
+# Advent of Code 2022 / Day 4
+
+## Camp Cleanup - contained pairs
+
+```elixir
+input = """
+2-4,6-8
+2-3,4-5
+5-7,7-9
+2-8,3-7
+6-6,4-6
+2-6,4-8
+"""
+```
+
+We split strings into list of lists. Each inner list will contain 4 numbers defining 2 ranges.
+
+```elixir
+ranges =
+  Enum.map(String.split(input), fn line ->
+    line
+    |> String.replace("-", ",")
+    |> String.split(",")
+    |> Enum.map(&elem(Integer.parse(&1), 0))
+  end)
+```
+
+Reduce the list to accumulate number of fully contained range cases.
+
+```elixir
+Enum.reduce(ranges, 0, fn [a, b, c, d], acc ->
+  if (c <= a and d >= b) or (a <= c and b >= d) do
+    acc + 1
+  else
+    acc
+  end
+end)
+```
+
+## Overlapping pairs
+
+We have to check if any border of the other range are in given one and vice versa.
+
+```elixir
+Enum.reduce(ranges, 0, fn [a, b, c, d], acc ->
+  if c in a..b or d in a..b or a in c..d or b in c..d do
+    acc + 1
+  else
+    acc
+  end
+end)
+```

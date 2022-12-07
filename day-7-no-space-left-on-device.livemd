@@ -1,0 +1,146 @@
+# Advent of Code 2022 / Day 7
+
+## Directory sizes
+
+Let's accumulate directories and files sizes into a list of tuples where first element is the path and the second one is the size.
+
+```elixir
+input = """
+$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"""
+```
+
+```elixir
+ops = String.split(input, "\n")
+```
+
+```elixir
+{_, size_by_path} =
+  Enum.reduce(ops, {[], []}, fn
+    "$ cd ..", {path, sizes} ->
+      {List.delete_at(path, 0), sizes}
+
+    "$ cd " <> subdir, {path, sizes} ->
+      {[subdir | path], sizes}
+
+    "$ ls", acc ->
+      acc
+
+    ls_row, {path, sizes} = acc ->
+      case Integer.parse(ls_row) do
+        {size, object} ->
+          {path, [{Enum.reverse(path) ++ [String.trim(object)], size} | sizes]}
+
+        :error ->
+          acc
+      end
+  end)
+```
+
+Now let's calculate accumulated sums of directories.
+
+```elixir
+defmodule SizeCalculator do
+  def dir_sizes(size_by_path) do
+    sizes =
+      size_by_path
+      |> Enum.group_by(fn {path, _} -> List.delete_at(path, -1) end, fn {_, value} -> value end)
+      |> Enum.map(fn {path, sizes} -> {path, Enum.sum(sizes)} end)
+      |> Enum.into(%{})
+
+    Enum.reduce(Map.keys(sizes), sizes, fn key_list, sizes ->
+      add_intermediate_keys(key_list, sizes)
+    end)
+    |> Enum.sort_by(fn {path, _sizes} -> path end)
+  end
+
+  defp add_intermediate_keys([_], sizes), do: sizes
+
+  defp add_intermediate_keys(key_list, sizes) do
+    intermediate_key = List.delete_at(key_list, -1)
+
+    if not Map.has_key?(sizes, intermediate_key) do
+      add_intermediate_keys(intermediate_key, Map.put_new(sizes, intermediate_key, 0))
+    else
+      add_intermediate_keys(intermediate_key, sizes)
+    end
+  end
+
+  def summarize_dirs(paths, summarized \\ [])
+
+  def summarize_dirs([], summarized), do: Enum.reverse(summarized)
+
+  def summarize_dirs([{head_path, head_size} | tail], summarized) do
+    acc_size =
+      Enum.reduce(tail, 0, fn {item_path, item_size}, acc_size ->
+        if List.starts_with?(item_path, head_path) do
+          acc_size + item_size
+        else
+          acc_size
+        end
+      end)
+
+    summarize_dirs(tail, [{head_path, head_size + acc_size} | summarized])
+  end
+end
+```
+
+```elixir
+dir_sizes = SizeCalculator.dir_sizes(size_by_path)
+```
+
+```elixir
+sum_dir_sizes = SizeCalculator.summarize_dirs(dir_sizes)
+```
+
+Now let's filter dirs with sizes less then or equal 100K and sum them.
+
+```elixir
+sum_dir_sizes
+|> Enum.map(fn {_path, size} -> size end)
+|> Enum.filter(&(&1 <= 100_000))
+|> Enum.sum()
+```
+
+## Choose a directory
+
+Calculate the minimum space we have to free up by substracting / size from 70M
+
+```elixir
+[{["/"], root_used} | _] = sum_dir_sizes
+
+total_unused = 70_000_000 - root_used
+needed = 30_000_000 - total_unused
+```
+
+To find smallest directory bigger then needed size we filter every directory that is less than of needed size and take the smallest one.
+
+```elixir
+sum_dir_sizes
+|> Enum.reject(fn {_path, size} -> size < needed end)
+|> Enum.sort_by(fn {_path, size} -> size end)
+|> Enum.at(0)
+|> elem(1)
+```

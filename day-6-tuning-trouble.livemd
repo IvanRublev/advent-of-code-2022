@@ -1,0 +1,58 @@
+# Advent of Code 2022 / Day 6
+
+## Position of the start-of-packet
+
+```elixir
+input = "mjqjpqmgbljsphdztnvjfqwrcgsmlb"
+```
+
+Let's reduce the string validating that the first 4 characters are different. If not we remove one character and check again. If all 4 are different we stop.
+
+We track number of removed characters and calculate the start of the packet position by adding 4.
+
+```elixir
+defmodule Detector do
+  def start_of_packet_position(input) do
+    run(input, 0, 4)
+  end
+
+  def start_of_message_position(input) do
+    run(input, 0, 14)
+  end
+
+  defp run([], _, distinct_chars) do
+    raise "No distinct sequence of #{distinct_chars} chars was detected."
+  end
+
+  defp run(input, removed_count, distinct_chars) do
+    {head, tail} = Enum.split(input, distinct_chars)
+
+    seq_len =
+      head
+      |> Enum.uniq()
+      |> length()
+
+    if seq_len == distinct_chars do
+      removed_count + distinct_chars
+    else
+      run(List.delete_at(head, 0) ++ tail, removed_count + 1, distinct_chars)
+    end
+  end
+end
+```
+
+```elixir
+input
+|> String.graphemes()
+|> Detector.start_of_packet_position()
+```
+
+## Start of the message
+
+The second part is essentially the same as the first one. The difference is that the number of distinct characters is 14 now. We basically parametrize the algorithm.
+
+```elixir
+input
+|> String.graphemes()
+|> Detector.start_of_message_position()
+```

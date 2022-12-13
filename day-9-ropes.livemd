@@ -1,0 +1,117 @@
+# Advent of Code 2022 / Day 9
+
+## Tail movements
+
+```elixir
+input = """
+R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2
+"""
+```
+
+```elixir
+parse_input = fn input ->
+  input
+  |> String.split("\n")
+  |> List.delete_at(-1)
+  |> Enum.map(fn bin ->
+    [dir_bin, len_bin] = String.split(bin)
+    {dir_bin, String.to_integer(len_bin)}
+  end)
+end
+
+head_moves = parse_input.(input)
+```
+
+Let's make a function that returns sequence of coordinates for tail in one dimention.
+
+```elixir
+defmodule RopeCalculator do
+  def update_coords(h_moves, nodes_coords \\ [[{0, 0}], [{0, 0}]])
+
+  def update_coords([], nodes_coords), do: nodes_coords
+
+  def update_coords([{_dir, 0} | rest], nodes_coords) do
+    update_coords(rest, nodes_coords)
+  end
+
+  def update_coords([{dir, len} | rest], nodes_coords) do
+    [head_coords | rest_coords] = nodes_coords
+
+    [h_coords | rest_h_coords] = head_coords
+    nodes_coords = [[update_head(dir, h_coords), h_coords | rest_h_coords] | rest_coords]
+
+    nodes_coords =
+      Enum.reduce(1..(length(nodes_coords) - 1), nodes_coords, fn idx, nodes_coords ->
+        [h | _h_rest] = Enum.at(nodes_coords, idx - 1)
+
+        List.update_at(nodes_coords, idx, fn [t | t_rest] = t_coords ->
+          if upd_t = update_tail(h, t) do
+            [upd_t, t | t_rest]
+          else
+            t_coords
+          end
+        end)
+      end)
+
+    update_coords([{dir, len - 1} | rest], nodes_coords)
+  end
+
+  defp update_head("R", {h_x, h_y}), do: {h_x + 1, h_y}
+  defp update_head("L", {h_x, h_y}), do: {h_x - 1, h_y}
+  defp update_head("U", {h_x, h_y}), do: {h_x, h_y + 1}
+  defp update_head("D", {h_x, h_y}), do: {h_x, h_y - 1}
+
+  defp update_tail({h_x, h_y}, {t_x, t_y}) when abs(h_x - t_x) >= 2 or abs(h_y - t_y) >= 2 do
+    {t_x + sign(h_x, t_x), t_y + sign(h_y, t_y)}
+  end
+
+  defp update_tail(_h, _t) do
+    nil
+  end
+
+  defp sign(a, b) do
+    max(min(a - b, 1), -1)
+  end
+end
+```
+
+```elixir
+head_moves
+|> RopeCalculator.update_coords()
+|> Enum.at(1)
+|> Enum.uniq()
+|> length()
+```
+
+## The 9th tail
+
+```elixir
+head_moves =
+  parse_input.("""
+  R 5
+  U 8
+  L 8
+  D 3
+  R 17
+  D 10
+  L 25
+  U 20
+  """)
+```
+
+We add 10 nodes into account.
+
+```elixir
+head_moves
+|> RopeCalculator.update_coords(List.duplicate([{0, 0}], 10))
+|> List.last()
+|> Enum.uniq()
+|> length()
+```

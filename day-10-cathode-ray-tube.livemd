@@ -1,0 +1,236 @@
+# Advent of Code 2022 / Day 10
+
+## Signal strength
+
+```elixir
+input = """
+addx 15
+addx -11
+addx 6
+addx -3
+addx 5
+addx -1
+addx -8
+addx 13
+addx 4
+noop
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx -35
+addx 1
+addx 24
+addx -19
+addx 1
+addx 16
+addx -11
+noop
+noop
+addx 21
+addx -15
+noop
+noop
+addx -3
+addx 9
+addx 1
+addx -3
+addx 8
+addx 1
+addx 5
+noop
+noop
+noop
+noop
+noop
+addx -36
+noop
+addx 1
+addx 7
+noop
+noop
+noop
+addx 2
+addx 6
+noop
+noop
+noop
+noop
+noop
+addx 1
+noop
+noop
+addx 7
+addx 1
+noop
+addx -13
+addx 13
+addx 7
+noop
+addx 1
+addx -33
+noop
+noop
+noop
+addx 2
+noop
+noop
+noop
+addx 8
+noop
+addx -1
+addx 2
+addx 1
+noop
+addx 17
+addx -9
+addx 1
+addx 1
+addx -3
+addx 11
+noop
+noop
+addx 1
+noop
+addx 1
+noop
+noop
+addx -13
+addx -19
+addx 1
+addx 3
+addx 26
+addx -30
+addx 12
+addx -1
+addx 3
+addx 1
+noop
+noop
+noop
+addx -9
+addx 18
+addx 1
+addx 2
+noop
+noop
+addx 9
+noop
+noop
+noop
+addx -1
+addx 2
+addx -37
+addx 1
+addx 3
+noop
+addx 15
+addx -21
+addx 22
+addx -6
+addx 1
+noop
+addx 2
+addx 1
+noop
+addx -10
+noop
+noop
+addx 20
+addx 1
+addx 2
+addx 2
+addx -6
+addx -11
+noop
+noop
+noop
+"""
+```
+
+```elixir
+additions =
+  input
+  |> String.split("\n")
+  |> List.delete_at(-1)
+  |> Enum.map(fn
+    "noop" -> 0
+    <<"addx ", bin::binary>> -> String.to_integer(bin)
+  end)
+```
+
+We return first 220th elements because we don't need more by the task.
+
+```elixir
+defmodule CPU do
+  def run(additions, count \\ 220, cycle \\ 1, register \\ 1, acc \\ [])
+
+  def run(_additions, count, stop_cycle, _register, acc) when stop_cycle >= count + 1 do
+    acc
+    |> Enum.reverse()
+    |> Enum.take(count)
+  end
+
+  def run([0 | tail], count, cycle, register, acc) do
+    run(tail, count, cycle + 1, register, [{cycle, register} | acc])
+  end
+
+  def run([inc | tail], count, cycle, register, acc) do
+    run(tail, count, cycle + 2, register + inc, [{cycle + 1, register}, {cycle, register} | acc])
+  end
+end
+```
+
+Let's run our CPU.
+
+```elixir
+cycle_value = CPU.run(additions)
+```
+
+Now let's aggreagate each 20th cycle by multiplying value to cycle count.
+
+```elixir
+cut_cycles = [20, 60, 100, 140, 180, 220]
+
+picked_values =
+  Enum.reduce(cut_cycles, [], fn cycle, acc ->
+    [Enum.at(cycle_value, cycle - 1) | acc]
+  end)
+```
+
+```elixir
+picked_values
+|> Enum.map(fn {cycle, value} -> cycle * value end)
+|> Enum.sum()
+```
+
+## Display pixels
+
+```elixir
+cycle_value = CPU.run(additions, 240)
+
+crt_sprite_poses =
+  Enum.map(cycle_value, fn {cycle, position} ->
+    {cycle - 1 - div(cycle - 1, 40) * 40, (position - 1)..(position + 1)}
+  end)
+```
+
+```elixir
+lit_darks =
+  crt_sprite_poses
+  |> Enum.map(fn {crt_pos, sprite_pos} ->
+    if crt_pos in sprite_pos do
+      "#"
+    else
+      "."
+    end
+  end)
+  |> Enum.chunk_every(40)
+  |> Enum.map(&Enum.join/1)
+  |> Enum.map(&IO.puts/1)
+```

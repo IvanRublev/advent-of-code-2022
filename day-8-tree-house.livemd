@@ -1,0 +1,110 @@
+# Advent of Code 2022 / Day 8
+
+## Visible trees
+
+```elixir
+input = """
+30373
+25512
+65332
+33549
+35390
+"""
+```
+
+```elixir
+heights =
+  input
+  |> String.split("\n")
+  |> Enum.map(&(&1 |> String.graphemes() |> Enum.map(fn bin -> elem(Integer.parse(bin), 0) end)))
+  |> List.delete_at(-1)
+```
+
+```elixir
+visible_tree_idx = fn row, a_height ->
+  case Enum.find_index(row, &(&1 >= a_height)) do
+    nil -> nil
+    idx -> if Enum.at(row, idx) == a_height, do: idx, else: nil
+  end
+end
+```
+
+```elixir
+nil == visible_tree_idx.([3, 0, 3, 7, 3], 0)
+0 == visible_tree_idx.([3, 0, 3, 7, 3], 3)
+3 == visible_tree_idx.([3, 0, 3, 7, 3], 7)
+```
+
+```elixir
+calc_visible = fn heights, a_height ->
+  Enum.reduce(heights, {0, []}, fn row, {acc, upd_heights} ->
+    case visible_tree_idx.(row, a_height) do
+      nil -> {acc, [row | upd_heights]}
+      idx -> {acc + 1, [List.replace_at(row, idx, 10) | upd_heights]}
+    end
+  end)
+end
+
+Enum.reduce(0..9, 0, fn a_height, acc ->
+  {w_visible, upd_heights} = calc_visible.(heights, a_height)
+  {e_visible, upd_heights} = calc_visible.(Enum.map(upd_heights, &Enum.reverse/1), a_height)
+  {n_visible, upd_heights} = calc_visible.(Enum.zip_with(upd_heights, & &1), a_height)
+  {s_visible, _upd_heights} = calc_visible.(Enum.map(upd_heights, &Enum.reverse/1), a_height)
+
+  acc + w_visible + e_visible + n_visible + s_visible
+end)
+```
+
+## Scenic score
+
+```elixir
+row_score = fn row, start_idx ->
+  a_height = Enum.at(row, start_idx)
+  tail = Enum.slice(row, (start_idx + 1)..length(row))
+
+  case Enum.find_index(tail, &(&1 >= a_height)) do
+    nil -> length(tail)
+    idx -> idx + 1
+  end
+end
+```
+
+```elixir
+2 == row_score.([3, 5, 3, 5, 3], 1)
+2 == row_score.([9, 4, 5, 3, 3], 2)
+1 == row_score.([3, 5, 3, 5, 3], 3)
+2 == row_score.([3, 3, 5, 4, 9], 2)
+```
+
+```elixir
+maybe_one = fn
+  0 -> 1
+  num -> num
+end
+
+scores = fn heights ->
+  Enum.map(heights, fn row ->
+    Enum.map(0..(length(row) - 1), &maybe_one.(row_score.(row, &1)))
+  end)
+end
+
+reverse = fn matrix -> Enum.map(matrix, &Enum.reverse/1) end
+transpose = fn matrix -> Enum.zip_with(matrix, & &1) end
+
+e_heights = heights
+e_scores = scores.(e_heights)
+
+w_heights = reverse.(e_heights)
+w_scores = reverse.(scores.(w_heights))
+
+n_heights = transpose.(heights)
+n_scores = transpose.(scores.(n_heights))
+
+s_heights = reverse.(n_heights)
+s_scores = transpose.(reverse.(scores.(s_heights)))
+
+[e_scores, w_scores, n_scores, s_scores]
+|> Enum.map(&List.flatten/1)
+|> Enum.zip_reduce([], fn all_scores, acc -> [Enum.reduce(all_scores, 1, &(&2 * &1)) | acc] end)
+|> Enum.max()
+```

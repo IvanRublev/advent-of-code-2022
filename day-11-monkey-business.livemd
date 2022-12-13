@@ -1,0 +1,169 @@
+# Advent of Code 2022 / Day 11
+
+## Monkey business
+
+```elixir
+input = """
+Monkey 0:
+  Starting items: 79, 98
+  Operation: new = old * 19
+  Test: divisible by 23
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 65, 75, 74
+  Operation: new = old + 6
+  Test: divisible by 19
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 2:
+  Starting items: 79, 60, 97
+  Operation: new = old * old
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 74
+  Operation: new = old + 3
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 1
+"""
+```
+
+```elixir
+monkeys =
+  ~r{Monkey (\d):\n  Starting items: ([\d, ]+)\n  Operation: new = old ([+*]) (\d+|old)\n  Test: divisible by (\d+)\n    If true: throw to monkey (\d)\n    If false: throw to monkey (\d)\n}
+  |> Regex.scan(input, capture: :all_but_first)
+  |> Enum.reduce([], fn a_monkey, acc ->
+    [_idx_bin, items_bin, operator, operand_bin, divider_bin, true_idx_bin, false_idx_bin] =
+      a_monkey
+
+    items = items_bin |> String.split([",", " "], trim: true) |> Enum.map(&String.to_integer/1)
+
+    [
+      {
+        items,
+        {
+          operator,
+          if(operand_bin == "old", do: :old, else: String.to_integer(operand_bin)),
+          String.to_integer(divider_bin),
+          String.to_integer(true_idx_bin),
+          String.to_integer(false_idx_bin)
+        },
+        0
+      }
+      | acc
+    ]
+  end)
+  |> Enum.reverse()
+```
+
+Let's make a function that operates like a monkey.
+
+```elixir
+defmodule Monkey do
+  def round(monkeys) do
+    Enum.reduce(0..(length(monkeys) - 1), monkeys, fn idx, monkeys ->
+      do_turn(idx, monkeys)
+    end)
+  end
+
+  def do_turn(idx, monkeys) do
+    {items, {operator, operand, divider, true_idx, false_idx}, _inspections} =
+      Enum.at(monkeys, idx)
+
+    monkeys =
+      List.update_at(monkeys, idx, fn {items, behaviour, inspections} ->
+        {[], behaviour, inspections + length(items)}
+      end)
+
+    Enum.reduce(items, monkeys, fn item_worry_level, monkeys ->
+      worry_level = calculate_worry(operator, operand, item_worry_level)
+      worry_level = div(worry_level, 3)
+      update_idx = if rem(worry_level, divider) == 0, do: true_idx, else: false_idx
+
+      List.update_at(monkeys, update_idx, fn {items, behaviour, inspections} ->
+        {items ++ [worry_level], behaviour, inspections}
+      end)
+    end)
+  end
+
+  defp calculate_worry("*", :old, item_worry_level), do: item_worry_level * item_worry_level
+  defp calculate_worry("*", operand, item_worry_level), do: item_worry_level * operand
+  defp calculate_worry("+", operand, item_worry_level), do: item_worry_level + operand
+end
+```
+
+```elixir
+[insp1, insp2] =
+  1..20
+  |> Enum.reduce(monkeys, fn _round_num, monkeys -> Monkey.round(monkeys) end)
+  |> Enum.map(&elem(&1, 2))
+  |> Enum.sort(:desc)
+  |> Enum.take(2)
+
+insp1 * insp2
+```
+
+## Worry levels go nuts
+
+```elixir
+defmodule Monkey2 do
+  def round(monkeys, common_divisor) do
+    Enum.reduce(0..(length(monkeys) - 1), monkeys, fn idx, monkeys ->
+      do_turn(idx, monkeys, common_divisor)
+    end)
+  end
+
+  def do_turn(idx, monkeys, common_divisor) do
+    {items, {operator, operand, divider, true_idx, false_idx}, _inspections} =
+      Enum.at(monkeys, idx)
+
+    monkeys =
+      List.update_at(monkeys, idx, fn {items, behaviour, inspections} ->
+        {[], behaviour, inspections + length(items)}
+      end)
+
+    Enum.reduce(items, monkeys, fn item_worry_level, monkeys ->
+      worry_level = calculate_worry(operator, operand, item_worry_level)
+
+      worry_level =
+        if worry_level > common_divisor, do: rem(worry_level, common_divisor), else: worry_level
+
+      update_idx = if rem(worry_level, divider) == 0, do: true_idx, else: false_idx
+
+      List.update_at(monkeys, update_idx, fn {items, behaviour, inspections} ->
+        {items ++ [worry_level], behaviour, inspections}
+      end)
+    end)
+  end
+
+  defp calculate_worry("*", :old, item_worry_level), do: item_worry_level * item_worry_level
+  defp calculate_worry("*", operand, item_worry_level), do: item_worry_level * operand
+  defp calculate_worry("+", operand, item_worry_level), do: item_worry_level + operand
+end
+```
+
+```elixir
+common_divisor =
+  Enum.reduce(monkeys, 1, fn {_items, {_operator, _operand, divider, _true_idx, _false_idx},
+                              _inspections},
+                             acc ->
+    acc * divider
+  end)
+```
+
+```elixir
+[insp1, insp2] =
+  1..10000
+  |> Enum.reduce(monkeys, fn _round_num, monkeys -> Monkey2.round(monkeys, common_divisor) end)
+  |> Enum.map(&elem(&1, 2))
+  |> Enum.sort(:desc)
+  |> Enum.take(2)
+
+insp1 * insp2
+```
